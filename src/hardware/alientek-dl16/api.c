@@ -309,7 +309,7 @@ static int config_get(uint32_t key, GVariant **data,
 		*data = g_variant_new_boolean(devc->rle);
 		break;
 	case SR_CONF_VOLTAGE_THRESHOLD:
-		*data = g_variant_new_double(devc->threshold);
+		*data = std_gvar_tuple_double(devc->threshold, devc->threshold);
 		break;
 	case SR_CONF_OUTPUT_FREQUENCY:
 		if ((ch = pwm_channel_from_cg(cg)) < 0)
@@ -332,6 +332,7 @@ static int config_set(uint32_t key, GVariant *data,
 	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
 {
 	struct dev_context *devc;
+	gdouble low, high;
 	int idx, ch;
 
 	if (!sdi)
@@ -370,7 +371,8 @@ static int config_set(uint32_t key, GVariant *data,
 		devc->rle = g_variant_get_boolean(data);
 		break;
 	case SR_CONF_VOLTAGE_THRESHOLD:
-		devc->threshold = g_variant_get_double(data);
+		g_variant_get(data, "(dd)", &low, &high);
+		devc->threshold = (low + high) / 2.0;
 		break;
 	case SR_CONF_OUTPUT_FREQUENCY:
 		if ((ch = pwm_channel_from_cg(cg)) < 0)
