@@ -36,7 +36,7 @@ static const uint32_t drvopts[] = {
 };
 
 static const uint32_t devopts[] = {
-	SR_CONF_CONTINUOUS,
+	SR_CONF_CONTINUOUS | SR_CONF_GET | SR_CONF_SET,
 	SR_CONF_LIMIT_SAMPLES | SR_CONF_GET | SR_CONF_SET,
 	SR_CONF_LIMIT_FRAMES | SR_CONF_GET | SR_CONF_SET,
 	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
@@ -253,6 +253,9 @@ static int config_get(uint32_t key, GVariant **data,
 	case SR_CONF_CAPTURE_RATIO:
 		*data = g_variant_new_uint64(devc->capture_ratio);
 		break;
+	case SR_CONF_CONTINUOUS:
+		*data = g_variant_new_boolean(devc->continuous);
+		break;
 	case SR_CONF_RLE:
 		*data = g_variant_new_boolean(devc->rle);
 		break;
@@ -295,6 +298,9 @@ static int config_set(uint32_t key, GVariant *data,
 		break;
 	case SR_CONF_CAPTURE_RATIO:
 		devc->capture_ratio = g_variant_get_uint64(data);
+		break;
+	case SR_CONF_CONTINUOUS:
+		devc->continuous = g_variant_get_boolean(data);
 		break;
 	case SR_CONF_RLE:
 		devc->rle = g_variant_get_boolean(data);

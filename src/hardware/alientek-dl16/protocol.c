@@ -249,13 +249,21 @@ static int dl16_send_param_setting(const struct sr_dev_inst *sdi)
 	return dl16_write_command(sdi, CMD_PARAM_SETTING, param, sizeof(param));
 }
 
-/* 0x12: SimpleTrigger payload (9 bytes). Enable channels, immediate. */
+/* 0x12: SimpleTrigger payload (9 bytes).
+ *
+ * Per channel pair byte: bit7/3 = enable (even/odd), bit4/0 = rising edge,
+ * bit5/1 = falling edge, bit6/2 = high level. Low level sets no bits.
+ * Byte 8 is isInstantly (1 = capture immediately, no trigger wait).
+ */
 static int dl16_send_simple_trigger(const struct sr_dev_inst *sdi)
 {
 	uint8_t trig[9];
-	GSList *l;
+	struct sr_trigger *trigger;
+	GSList *l, *m;
+	gboolean has_trigger = FALSE;
 
 	memset(trig, 0, sizeof(trig));
+
 	for (l = sdi->channels; l; l = l->next) {
 		struct sr_channel *ch = l->data;
 		if (!ch->enabled)
@@ -265,7 +273,47 @@ static int dl16_send_simple_trigger(const struct sr_dev_inst *sdi)
 		else
 			trig[ch->index / 2] |= 0x08;
 	}
-	trig[8] = 1;	/* isInstantly: capture immediately, no trigger wait */
+
+	/* Map the first trigger stage's matches to the trigger bits. */
+	trigger = sr_session_trigger_get(sdi->session);
+	if (trigger && trigger->stages) {
+		struct sr_trigger_stage *stage = trigger->stages->data;
+		if (stage) {
+			for (m = stage->matches; m; m = m->next) {
+				struct sr_trigger_match *match = m->data;
+				int ch = match->channel->index;
+				int even = (ch % 2 == 0);
+				uint8_t bit_r = even ? 0x10 : 0x01;
+				uint8_t bit_f = even ? 0x20 : 0x02;
+				uint8_t bit_h = even ? 0x40 : 0x04;
+
+				if (ch < 0 || ch >= NUM_CHANNELS)
+					continue;
+
+				has_trigger = TRUE;
+				switch (match->match) {
+				case SR_TRIGGER_RISING:
+					trig[ch / 2] |= bit_r;
+					break;
+				case SR_TRIGGER_FALLING:
+					trig[ch / 2] |= bit_f;
+					break;
+				case SR_TRIGGER_ONE:
+					trig[ch / 2] |= bit_h;
+					break;
+				case SR_TRIGGER_EDGE:
+					trig[ch / 2] |= bit_r | bit_f;
+					break;
+				case SR_TRIGGER_ZERO:
+					break;	/* low level = no trigger bits */
+				default:
+					break;
+				}
+			}
+		}
+	}
+
+	trig[8] = has_trigger ? 0 : 1;
 
 	return dl16_write_command(sdi, CMD_SIMPLE_TRIGGER, trig, sizeof(trig));
 }
@@ -284,6 +332,7 @@ SR_PRIV struct dev_context *dl16_dev_new(void)
 	devc->threshold = 1.6f;	/* 3.3V CMOS midpoint */
 	devc->capture_ratio = 50;
 	devc->rate_index = 1;	/* 1 MHz default */
+	devc->continuous = TRUE;	/* stream mode (matches vendor default) */
 	for (i = 0; i < NUM_CHANNELS; i++)
 		devc->chanbuf[i] = g_byte_array_new();
 
@@ -488,7 +537,10 @@ SR_PRIV void dl16_handle_frame(struct sr_dev_inst *sdi, uint8_t order,
 		break;
 	}
 	case ORDER_DONE:
-		sr_dbg("Transfer complete (order 6).");
+		sr_dbg("order 6 (done): plen=%zu payload=%02x %02x %02x",
+			plen, plen > 0 ? payload[0] : 0,
+			plen > 1 ? payload[1] : 0,
+			plen > 2 ? payload[2] : 0);
 		devc->acq_aborted = TRUE;
 		break;
 	case ORDER_ACK:
