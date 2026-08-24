@@ -246,6 +246,10 @@ static int dl16_send_param_setting(const struct sr_dev_inst *sdi)
 	for (i = 0; i < 5; i++)
 		param[8 + i] = (trig_depth >> (i * 8)) & 0xff;
 
+	sr_dbg("param: %02x %02x %02x | %02x %02x %02x %02x %02x | %02x %02x %02x %02x %02x",
+		param[0], param[1], param[2], param[3], param[4], param[5],
+		param[6], param[7], param[8], param[9], param[10], param[11], param[12]);
+
 	return dl16_write_command(sdi, CMD_PARAM_SETTING, param, sizeof(param));
 }
 
