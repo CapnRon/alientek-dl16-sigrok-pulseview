@@ -184,13 +184,16 @@ Triggers use `--triggers` (not `-c`): `--triggers D0=r` rising, `D0=f` falling,
 
 ## 🚀 Upstreaming
 
-The driver is a clean **10-commit series** (DCO signed-off) based on upstream
-`master`, intended for submission as a pull request to
-`sigrok-project/libsigrok`. See:
+The `alientek-dl16` driver is a self-contained series of commits in
+`src/hardware/alientek-dl16/`, intended for submission as a pull request to
+`sigrok-project/libsigrok`:
 
 ```sh
 git log master -- src/hardware/alientek-dl16
 ```
+
+This fork also carries the README, build documentation, and a udev entry for
+`1a86:ffcc` on top of upstream `master`.
 
 ## 📁 Driver files
 
