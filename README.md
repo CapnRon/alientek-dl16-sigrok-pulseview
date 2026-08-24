@@ -9,6 +9,12 @@ with one addition: the `alientek-dl16` driver. The device protocol was
 reverse-engineered from ALIENTEK's GPL "ATK-Logic" host software and
 reimplemented cleanly for upstreaming.
 
+<p align="center">
+  <img src="doc/img/dl16-1.png" width="220" alt="ALIENTEK DL16" />
+  <img src="doc/img/dl16-2.png" width="220" alt="ALIENTEK DL16" />
+  <img src="doc/img/dl16-3.png" width="220" alt="ALIENTEK DL16" />
+</p>
+
 <div align="center">
 
 | | |
