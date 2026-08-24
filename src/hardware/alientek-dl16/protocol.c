@@ -296,6 +296,7 @@ static int dl16_send_simple_trigger(const struct sr_dev_inst *sdi)
 	struct sr_trigger *trigger;
 	GSList *l, *m;
 	gboolean has_trigger = FALSE;
+	gboolean matched[NUM_CHANNELS] = { 0 };
 
 	memset(trig, 0, sizeof(trig));
 
@@ -326,6 +327,7 @@ static int dl16_send_simple_trigger(const struct sr_dev_inst *sdi)
 					continue;
 
 				has_trigger = TRUE;
+				matched[ch] = TRUE;
 				switch (match->match) {
 				case SR_TRIGGER_RISING:
 					trig[ch / 2] |= bit_r;
@@ -346,6 +348,19 @@ static int dl16_send_simple_trigger(const struct sr_dev_inst *sdi)
 				}
 			}
 		}
+	}
+
+	/* Selected channels without an explicit trigger get the vendor's
+	 * default capture bits (rising + falling + high). The device aborts
+	 * multi-channel captures if these are left clear. */
+	for (l = sdi->channels; l; l = l->next) {
+		struct sr_channel *ch = l->data;
+		if (!ch->enabled || matched[ch->index])
+			continue;
+		if (ch->index % 2 == 0)
+			trig[ch->index / 2] |= 0x70;
+		else
+			trig[ch->index / 2] |= 0x07;
 	}
 
 	trig[8] = has_trigger ? 0 : 1;
