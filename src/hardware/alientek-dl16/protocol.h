@@ -111,6 +111,7 @@ struct dev_context {
 	GByteArray *chanbuf[NUM_CHANNELS];
 };
 
+SR_PRIV char *dl16_probe_model(libusb_context *ctx, libusb_device *dev);
 SR_PRIV int dl16_dev_open(struct sr_dev_inst *sdi);
 SR_PRIV struct dev_context *dl16_dev_new(void);
 SR_PRIV int dl16_start_acquisition(const struct sr_dev_inst *sdi);

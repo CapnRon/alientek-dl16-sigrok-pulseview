@@ -149,7 +149,8 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 		sdi->status = SR_ST_INACTIVE;
 		sdi->inst_type = SR_INST_USB;
 		sdi->vendor = g_strdup("ALIENTEK");
-		sdi->model = g_strdup("DL16");
+		sdi->model = dl16_probe_model(drvc->sr_ctx->libusb_ctx,
+			devlist[i]);
 		sdi->connection_id = g_strdup(connection_id);
 		sdi->conn = sr_usb_dev_inst_new(
 			libusb_get_bus_number(devlist[i]),

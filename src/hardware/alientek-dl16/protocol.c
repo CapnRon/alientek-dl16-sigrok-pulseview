@@ -323,6 +323,62 @@ static int dl16_send_simple_trigger(const struct sr_dev_inst *sdi)
 }
 
 /* ------------------------------------------------------------------ */
+/* Device identity                                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Probe the model name by reading the MCU version (raw sub-command 0x81).
+ * Reply: [0x0A][0x81][0x01][state][...][level]; level==1 means "Plus".
+ * Opens the device briefly; safe to call during scan.
+ */
+SR_PRIV char *dl16_probe_model(libusb_context *ctx, libusb_device *dev)
+{
+	libusb_device_handle *hdl = NULL;
+	uint8_t buf[512];
+	int transferred = 0, r;
+	const char *model = "DL16";
+
+	(void)ctx;
+
+	if (libusb_open(dev, &hdl) != LIBUSB_SUCCESS)
+		return g_strdup(model);
+
+	if (libusb_claim_interface(hdl, USB_INTERFACE) != LIBUSB_SUCCESS) {
+		libusb_close(hdl);
+		return g_strdup(model);
+	}
+
+	/* Drain stale data from any previous capture. */
+	do {
+		transferred = 0;
+		r = libusb_bulk_transfer(hdl, EP_IN, buf, sizeof(buf),
+			&transferred, 10);
+	} while (r == LIBUSB_SUCCESS && transferred > 0);
+
+	memset(buf, 0, sizeof(buf));
+	buf[0] = FRAME_HEAD;
+	buf[1] = 0x81;
+	libusb_bulk_transfer(hdl, EP_OUT, buf, sizeof(buf), &transferred, 1000);
+
+	memset(buf, 0, sizeof(buf));
+	transferred = 0;
+	r = libusb_bulk_transfer(hdl, EP_IN, buf, sizeof(buf), &transferred, 1000);
+
+	sr_dbg("mcu probe: r=%d transferred=%d buf=%02x %02x %02x %02x .. %02x",
+		r, transferred, buf[0], buf[1], buf[2], buf[3], buf[8]);
+
+	if (r == LIBUSB_SUCCESS && transferred >= 9 &&
+		buf[0] == FRAME_HEAD && buf[1] == 0x81 && buf[2] == 0x01 &&
+		buf[3] == 0x61 && buf[8] == 1)
+		model = "DL16 Plus";
+
+	libusb_release_interface(hdl, USB_INTERFACE);
+	libusb_close(hdl);
+
+	return g_strdup(model);
+}
+
+/* ------------------------------------------------------------------ */
 /* Device open / close                                                */
 /* ------------------------------------------------------------------ */
 
