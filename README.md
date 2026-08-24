@@ -60,11 +60,26 @@ reimplemented cleanly for upstreaming.
 | **Linux** | ✅ Verified — `sigrok-cli` + PulseView, live capture decodes UART, trigger/RLE/PWM exercised |
 | **Windows** | 🚧 Cross-compile in progress (MXE); release binaries will be attached |
 
+## 📦 Dependencies (Linux)
+
+Copy-paste to install everything needed (Debian/Ubuntu):
+
+```sh
+sudo apt-get update && sudo apt-get install -y \
+  git build-essential autoconf automake libtool pkg-config \
+  libglib2.0-dev libusb-1.0-0-dev libzip-dev \
+  libftdi1-dev libhidapi-dev libserialport-dev
+```
+
+> Minimal DL16-only build only needs `libglib2.0-dev` and `libusb-1.0-0-dev`
+> (plus the toolchain). The extra packages enable the other libsigrok drivers.
+
 ## 🛠️ Building (Linux)
 
 ```sh
 git clone https://github.com/CapnRon/alientek-dl16-sigrok-pulseview.git
 cd alientek-dl16-sigrok-pulseview
+chmod +x autogen.sh   # required if the script isn't executable
 ./autogen.sh
 ./configure --disable-all-drivers --enable-alientek-dl16
 make
