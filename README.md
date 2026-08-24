@@ -116,8 +116,10 @@ GPL v3 or later — same as libsigrok.
 
 ---
 
-# Upstream libsigrok README
 
+## Original upstream README (unchanged)
+
+```text
 -------------------------------------------------------------------------------
 README
 -------------------------------------------------------------------------------
@@ -282,3 +284,4 @@ Website
 
  http://sigrok.org/wiki/Libsigrok
 
+```
