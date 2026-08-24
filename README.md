@@ -81,9 +81,23 @@ git clone https://github.com/CapnRon/alientek-dl16-sigrok-pulseview.git
 cd alientek-dl16-sigrok-pulseview
 chmod +x autogen.sh   # required if the script isn't executable
 ./autogen.sh
-./configure --disable-all-drivers --enable-alientek-dl16
 make
 sudo make install
+sudo ldconfig          # required: refresh the loader cache so tools pick up the new library
+```
+
+Choose **one** `./configure` line before running `make`:
+
+**Full build (recommended)** — all drivers + `alientek-dl16` + C++ bindings (required for PulseView):
+
+```sh
+./configure --enable-cxx --disable-python --disable-java --disable-ruby --prefix=/usr/local
+```
+
+**Minimal build** — `alientek-dl16` only (fastest; `sigrok-cli` works, but PulseView will NOT see the driver):
+
+```sh
+./configure --disable-all-drivers --enable-alientek-dl16
 ```
 
 ## 📟 Usage
