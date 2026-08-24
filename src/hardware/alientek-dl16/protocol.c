@@ -409,6 +409,52 @@ SR_PRIV char *dl16_probe_model(libusb_context *ctx, libusb_device *dev)
 	return g_strdup(model);
 }
 
+/*
+ * Read the FPGA firmware version (order-2 reply to CMD_GET_DEVICE_DATA).
+ * Requires an open device; wakes the FPGA first. version is payload[5]*100
+ * + payload[6] (e.g. 119 == 1.19).
+ */
+SR_PRIV int dl16_read_fpga_version(const struct sr_dev_inst *sdi,
+		uint16_t *version)
+{
+	struct sr_usb_dev_inst *usb = sdi->conn;
+	uint8_t buf[BLOCK_SIZE];
+	uint8_t db[BLOCK_SIZE];
+	uint16_t plen;
+	int transferred = 0, r;
+
+	/* Wake FPGA and drain stale data. */
+	dl16_set_reset_state(sdi, 0);
+	g_usleep(10 * 1000);
+	dl16_set_reset_state(sdi, 1);
+	g_usleep(20 * 1000);
+	while (libusb_bulk_transfer(usb->devhdl, EP_IN, buf, sizeof(buf),
+			&transferred, 50) == LIBUSB_SUCCESS && transferred > 0)
+		;
+
+	if (dl16_write_command(sdi, CMD_GET_DEVICE_DATA, NULL, 0) != SR_OK)
+		return SR_ERR;
+
+	memset(buf, 0, sizeof(buf));
+	transferred = 0;
+	r = libusb_bulk_transfer(usb->devhdl, EP_IN, buf, BLOCK_SIZE,
+			&transferred, 2000);
+	if (r != LIBUSB_SUCCESS || transferred < BLOCK_SIZE)
+		return SR_ERR;
+
+	dl16_deinterleave(buf, db, BLOCK_SIZE);
+	if (db[0] != FRAME_HEAD || db[1] != ORDER_DEVICE_DATA)
+		return SR_ERR;
+
+	plen = db[2] | (db[3] << 8);
+	if (plen < 9)
+		return SR_ERR;
+
+	*version = db[4 + 5] * 100 + db[4 + 6];
+
+	return SR_OK;
+}
+
 /* ------------------------------------------------------------------ */
 /* Device open / close                                                */
 /* ------------------------------------------------------------------ */

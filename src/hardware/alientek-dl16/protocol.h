@@ -77,6 +77,9 @@
 #define PARAM_FLAG_BUFFER	(1 << 7)
 #define PARAM_FLAG_RLE		(1 << 6)
 
+/* Minimum FPGA firmware version accepted (vendor gate). */
+#define FPGA_MIN_VERSION_NUM	115
+
 struct dev_context {
 	/* Cached device identity. */
 	uint16_t mcu_version;
@@ -117,6 +120,8 @@ struct dev_context {
 };
 
 SR_PRIV char *dl16_probe_model(libusb_context *ctx, libusb_device *dev);
+SR_PRIV int dl16_read_fpga_version(const struct sr_dev_inst *sdi,
+		uint16_t *version);
 SR_PRIV int dl16_dev_open(struct sr_dev_inst *sdi);
 SR_PRIV struct dev_context *dl16_dev_new(void);
 SR_PRIV int dl16_start_acquisition(const struct sr_dev_inst *sdi);

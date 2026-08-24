@@ -218,6 +218,28 @@ static int dev_open(struct sr_dev_inst *sdi)
 	if (ret != SR_OK)
 		return ret;
 
+	/* FPGA firmware version gate (vendor requires >= 1.15). */
+	if (dl16_read_fpga_version(sdi, &devc->fpga_version) == SR_OK) {
+		g_free(sdi->version);
+		sdi->version = g_strdup_printf("FPGA %u.%u",
+			devc->fpga_version / 100, devc->fpga_version % 100);
+		if (devc->fpga_version < FPGA_MIN_VERSION_NUM) {
+			sr_err("FPGA firmware %u.%u too old (need >= %u.%u).",
+				devc->fpga_version / 100, devc->fpga_version % 100,
+				FPGA_MIN_VERSION_NUM / 100,
+				FPGA_MIN_VERSION_NUM % 100);
+			libusb_release_interface(usb->devhdl, USB_INTERFACE);
+			libusb_close(usb->devhdl);
+			usb->devhdl = NULL;
+			return SR_ERR;
+		}
+		sr_info("FPGA firmware %u.%u (min %u.%u).",
+			devc->fpga_version / 100, devc->fpga_version % 100,
+			FPGA_MIN_VERSION_NUM / 100, FPGA_MIN_VERSION_NUM % 100);
+	} else {
+		sr_warn("Could not read FPGA version; skipping version gate.");
+	}
+
 	if (devc->cur_samplerate == 0)
 		devc->cur_samplerate = samplerates[0];
 
