@@ -117,6 +117,12 @@ struct dev_context {
 
 	/* Per-channel capture buffers (8 samples/byte, LSB-first). */
 	GByteArray *chanbuf[NUM_CHANNELS];
+
+	/* Buffer-mode trigger crop (order 3). */
+	uint64_t trigger_offset;
+	uint64_t chan_counts[NUM_CHANNELS];
+	uint64_t crop_offset;	/* samples to skip from the start */
+	gboolean have_crop;
 };
 
 SR_PRIV char *dl16_probe_model(libusb_context *ctx, libusb_device *dev);

@@ -574,6 +574,18 @@ static void dl16_emit_logic(struct sr_dev_inst *sdi)
 	int ch, b;
 	gboolean have = FALSE;
 
+	/* Apply buffer-mode trigger crop once (skip pre-trigger excess). */
+	if (devc->have_crop && devc->crop_offset > 0) {
+		size_t skip = devc->crop_offset / 8;
+		for (ch = 0; ch < NUM_CHANNELS; ch++) {
+			if (devc->chanbuf[ch]->len > skip)
+				g_byte_array_remove_range(devc->chanbuf[ch], 0, skip);
+			else
+				g_byte_array_set_size(devc->chanbuf[ch], 0);
+		}
+		devc->have_crop = FALSE;
+	}
+
 	for (ch = 0; ch < NUM_CHANNELS; ch++) {
 		enabled[ch] = dl16_channel_enabled(sdi, ch);
 		if (enabled[ch]) {
@@ -672,6 +684,45 @@ SR_PRIV void dl16_handle_frame(struct sr_dev_inst *sdi, uint8_t order,
 			g_byte_array_free(rle, TRUE);
 
 		dl16_emit_logic(sdi);
+		break;
+	}
+	case ORDER_TRIGGER_OFFSET:
+	{
+		/* payload: [reserved:2][trigger offset:5][ch counts:5*16][flags?] */
+		uint64_t trig_depth;
+		int i;
+
+		if (plen >= 7)
+			devc->trigger_offset =
+				(uint64_t)payload[2] | ((uint64_t)payload[3] << 8) |
+				((uint64_t)payload[4] << 16) | ((uint64_t)payload[5] << 24) |
+				((uint64_t)payload[6] << 32);
+		sr_dbg("order 3: plen=%zu trig_off=%" PRIu64, plen,
+			devc->trigger_offset);
+
+		for (i = 0; i < NUM_CHANNELS && (size_t)7 + (i + 1) * 5 <= plen; i++) {
+			const uint8_t *p = payload + 7 + i * 5;
+			devc->chan_counts[i] =
+				(uint64_t)p[0] | ((uint64_t)p[1] << 8) |
+				((uint64_t)p[2] << 16) | ((uint64_t)p[3] << 24) |
+				((uint64_t)p[4] << 32);
+		}
+
+		/* Crop (buffer mode): skip samples so the trigger lands at the
+		 * capture-ratio position. offset = count*8 - trig_depth - trig_pos. */
+		if (!devc->continuous && devc->chan_counts[0] > 0 &&
+			devc->chan_counts[0] * 8 >
+				(devc->limit_samples ? devc->limit_samples : 1000000ULL)) {
+			trig_depth = (devc->limit_samples ? devc->limit_samples : 1000000ULL)
+				* devc->capture_ratio / 100;
+			devc->crop_offset = devc->chan_counts[0] * 8 - trig_depth
+				- devc->trigger_offset;
+			devc->have_crop = TRUE;
+			sr_dbg("order 3: crop=%" PRIu64 " (count=%" PRIu64
+				", trig_depth=%" PRIu64 ", trig_off=%" PRIu64 ")",
+				devc->crop_offset, devc->chan_counts[0] * 8,
+				trig_depth, devc->trigger_offset);
+		}
 		break;
 	}
 	case ORDER_DONE:
@@ -831,6 +882,8 @@ SR_PRIV int dl16_start_acquisition(const struct sr_dev_inst *sdi)
 	devc->acq_aborted = FALSE;
 	devc->sent_samples = 0;
 	devc->empty_transfer_count = 0;
+	devc->have_crop = FALSE;
+	devc->crop_offset = 0;
 	g_byte_array_set_size(devc->rxbuf, 0);
 	for (i = 0; i < NUM_CHANNELS; i++)
 		g_byte_array_set_size(devc->chanbuf[i], 0);
