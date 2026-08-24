@@ -125,7 +125,7 @@ struct dev_context {
 	gboolean have_crop;
 };
 
-SR_PRIV char *dl16_probe_model(libusb_context *ctx, libusb_device *dev);
+SR_PRIV char *dl16_probe_model(libusb_device *dev);
 SR_PRIV int dl16_read_fpga_version(const struct sr_dev_inst *sdi,
 		uint16_t *version);
 SR_PRIV int dl16_dev_open(struct sr_dev_inst *sdi);

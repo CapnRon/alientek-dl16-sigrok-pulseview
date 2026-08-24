@@ -203,7 +203,7 @@ SR_PRIV int dl16_send_pwm(const struct sr_dev_inst *sdi, int ch,
 	}
 
 	divider = (200000000ULL + hz / 2) / hz;
-	duty_val = (uint64_t)divider * duty / 100;
+	duty_val = ((uint64_t)divider * duty + 50) / 100;
 
 	payload[0] = ch ? 0x21 : 0x11;
 	for (i = 0; i < 4; i++)
@@ -277,7 +277,7 @@ static int dl16_send_param_setting(const struct sr_dev_inst *sdi)
 	for (i = 0; i < 5; i++)
 		param[8 + i] = (trig_depth >> (i * 8)) & 0xff;
 
-	sr_dbg("param: %02x %02x %02x | %02x %02x %02x %02x %02x | %02x %02x %02x %02x %02x",
+	sr_spew("param: %02x %02x %02x | %02x %02x %02x %02x %02x | %02x %02x %02x %02x %02x",
 		param[0], param[1], param[2], param[3], param[4], param[5],
 		param[6], param[7], param[8], param[9], param[10], param[11], param[12]);
 
@@ -362,14 +362,12 @@ static int dl16_send_simple_trigger(const struct sr_dev_inst *sdi)
  * Reply: [0x0A][0x81][0x01][state][...][level]; level==1 means "Plus".
  * Opens the device briefly; safe to call during scan.
  */
-SR_PRIV char *dl16_probe_model(libusb_context *ctx, libusb_device *dev)
+SR_PRIV char *dl16_probe_model(libusb_device *dev)
 {
 	libusb_device_handle *hdl = NULL;
 	uint8_t buf[512];
 	int transferred = 0, r;
 	const char *model = "DL16";
-
-	(void)ctx;
 
 	if (libusb_open(dev, &hdl) != LIBUSB_SUCCESS)
 		return g_strdup(model);
@@ -395,7 +393,7 @@ SR_PRIV char *dl16_probe_model(libusb_context *ctx, libusb_device *dev)
 	transferred = 0;
 	r = libusb_bulk_transfer(hdl, EP_IN, buf, sizeof(buf), &transferred, 1000);
 
-	sr_dbg("mcu probe: r=%d transferred=%d buf=%02x %02x %02x %02x .. %02x",
+	sr_spew("mcu probe: r=%d transferred=%d buf=%02x %02x %02x %02x .. %02x",
 		r, transferred, buf[0], buf[1], buf[2], buf[3], buf[8]);
 
 	if (r == LIBUSB_SUCCESS && transferred >= 9 &&
@@ -697,7 +695,7 @@ SR_PRIV void dl16_handle_frame(struct sr_dev_inst *sdi, uint8_t order,
 				(uint64_t)payload[2] | ((uint64_t)payload[3] << 8) |
 				((uint64_t)payload[4] << 16) | ((uint64_t)payload[5] << 24) |
 				((uint64_t)payload[6] << 32);
-		sr_dbg("order 3: plen=%zu trig_off=%" PRIu64, plen,
+		sr_spew("order 3: plen=%zu trig_off=%" PRIu64, plen,
 			devc->trigger_offset);
 
 		for (i = 0; i < NUM_CHANNELS && (size_t)7 + (i + 1) * 5 <= plen; i++) {
@@ -726,7 +724,7 @@ SR_PRIV void dl16_handle_frame(struct sr_dev_inst *sdi, uint8_t order,
 		break;
 	}
 	case ORDER_DONE:
-		sr_dbg("order 6 (done): plen=%zu payload=%02x %02x %02x",
+		sr_spew("order 6 (done): plen=%zu payload=%02x %02x %02x",
 			plen, plen > 0 ? payload[0] : 0,
 			plen > 1 ? payload[1] : 0,
 			plen > 2 ? payload[2] : 0);
