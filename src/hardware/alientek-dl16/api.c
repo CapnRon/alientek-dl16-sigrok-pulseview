@@ -63,6 +63,16 @@ static const uint64_t samplerates[] = {
 	SR_MHZ(500),
 };
 
+/* Stream mode is limited to 20 MHz (16ch) on the DL16 Plus. */
+static const uint64_t samplerates_stream[] = {
+	SR_MHZ(1),
+	SR_MHZ(2),
+	SR_MHZ(4),
+	SR_MHZ(5),
+	SR_MHZ(10),
+	SR_MHZ(20),
+};
+
 static const int32_t trigger_matches[] = {
 	SR_TRIGGER_ZERO,
 	SR_TRIGGER_ONE,
@@ -284,10 +294,17 @@ static int config_set(uint32_t key, GVariant *data,
 
 	switch (key) {
 	case SR_CONF_SAMPLERATE:
-		if ((idx = std_u64_idx(data, devc->samplerates,
-				devc->num_samplerates)) < 0)
-			return SR_ERR_ARG;
-		devc->cur_samplerate = devc->samplerates[idx];
+		if (devc->continuous) {
+			if ((idx = std_u64_idx(data, samplerates_stream,
+					ARRAY_SIZE(samplerates_stream))) < 0)
+				return SR_ERR_ARG;
+			devc->cur_samplerate = samplerates_stream[idx];
+		} else {
+			if ((idx = std_u64_idx(data, devc->samplerates,
+					devc->num_samplerates)) < 0)
+				return SR_ERR_ARG;
+			devc->cur_samplerate = devc->samplerates[idx];
+		}
 		devc->rate_index = idx + 1;
 		break;
 	case SR_CONF_LIMIT_SAMPLES:
@@ -332,8 +349,12 @@ static int config_list(uint32_t key, GVariant **data,
 	case SR_CONF_SAMPLERATE:
 		if (!devc)
 			return SR_ERR_NA;
-		*data = std_gvar_samplerates(devc->samplerates,
-			devc->num_samplerates);
+		if (devc->continuous)
+			*data = std_gvar_samplerates(samplerates_stream,
+				ARRAY_SIZE(samplerates_stream));
+		else
+			*data = std_gvar_samplerates(devc->samplerates,
+				devc->num_samplerates);
 		break;
 	case SR_CONF_TRIGGER_MATCH:
 		*data = std_gvar_array_i32(ARRAY_AND_SIZE(trigger_matches));
