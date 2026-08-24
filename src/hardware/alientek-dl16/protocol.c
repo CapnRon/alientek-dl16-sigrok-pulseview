@@ -183,6 +183,37 @@ SR_PRIV int dl16_send_stop(const struct sr_dev_inst *sdi)
 	return dl16_write_command(sdi, CMD_STOP, NULL, 0);
 }
 
+/*
+ * 0x17: PWM output.
+ *
+ * The device uses a 200 MHz base clock. For frequency hz and duty percent,
+ * divider = round(200e6 / hz), duty = round(divider * duty/100), both 4-byte
+ * LE. hz == 0 stops the channel. ch 0 uses 0x11/0x10, ch 1 uses 0x21/0x20.
+ */
+SR_PRIV int dl16_send_pwm(const struct sr_dev_inst *sdi, int ch,
+		uint32_t hz, uint32_t duty)
+{
+	uint8_t payload[9];
+	uint32_t divider, duty_val;
+	int i;
+
+	if (hz == 0) {
+		payload[0] = ch ? 0x20 : 0x10;
+		return dl16_write_command(sdi, CMD_PWM, payload, 1);
+	}
+
+	divider = (200000000ULL + hz / 2) / hz;
+	duty_val = (uint64_t)divider * duty / 100;
+
+	payload[0] = ch ? 0x21 : 0x11;
+	for (i = 0; i < 4; i++)
+		payload[1 + i] = (divider >> (i * 8)) & 0xff;
+	for (i = 0; i < 4; i++)
+		payload[5 + i] = (duty_val >> (i * 8)) & 0xff;
+
+	return dl16_write_command(sdi, CMD_PWM, payload, sizeof(payload));
+}
+
 /* Raw MCU sub-command (0x80..0x88): [0x0A][subcmd][val][...] 512 bytes.
  * No CRC, no interleave (matches ATK SendToMCU). */
 static int dl16_send_raw(const struct sr_dev_inst *sdi,

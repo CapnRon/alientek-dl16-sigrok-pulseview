@@ -117,6 +117,8 @@ SR_PRIV struct dev_context *dl16_dev_new(void);
 SR_PRIV int dl16_start_acquisition(const struct sr_dev_inst *sdi);
 SR_PRIV void dl16_abort_acquisition(struct dev_context *devc);
 SR_PRIV int dl16_send_stop(const struct sr_dev_inst *sdi);
+SR_PRIV int dl16_send_pwm(const struct sr_dev_inst *sdi, int ch,
+		uint32_t hz, uint32_t duty);
 SR_PRIV void dl16_stop_acquisition(struct sr_dev_inst *sdi);
 SR_PRIV void dl16_handle_frame(struct sr_dev_inst *sdi, uint8_t order,
 		const uint8_t *payload, size_t plen);
