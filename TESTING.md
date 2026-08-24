@@ -196,8 +196,12 @@ on the waveform.
 ## P4 — Trigger
 
 **Steps:**
-1. Stop capture, click the trigger button for D0, choose **Rising edge**.
-2. Press Run.
+1. Stop capture.
+2. **Right-click the "D0" channel label** — the colored header at the left of
+   the waveform that says "D0".
+3. In the context menu, choose **"Trigger on rising edge"** (the other options
+   are high/falling/low/rising-or-falling, all under the trigger section).
+4. Press **Run** (the play button).
 
 **Pass:** capture waits for a rising edge; waveform is aligned at the trigger
 point (capture ratio respected).
