@@ -182,6 +182,34 @@ the **CLI key** column is what you actually type:
 Triggers use `--triggers` (not `-c`): `--triggers D0=r` rising, `D0=f` falling,
 `D0=0` low, `D0=1` high, `D0=e` any edge.
 
+## 🩺 Troubleshooting
+
+**Device not listed by `sigrok-cli --scan`:**
+- Confirm it enumerates — `lsusb` must show `1a86:ffcc`.
+- Install the udev rule (step 5 above) and replug the analyzer.
+
+**`sr: alientek-dl16: Failed to send command 0x11: LIBUSB_ERROR_NO_DEVICE`:**
+- The analyzer dropped off the USB bus (common after repeated unplug/replug).
+  Power-cycle it (unplug ≥10 s, replug), wait for `lsusb` to settle, retry.
+- If it recurs, use a powered hub or a different port — some laptop internal
+  hubs are marginal for the analyzer's current draw.
+
+**`pulseview` still runs the old binary after `make install` (but `./pulseview` works):**
+- The shell cached the old path. Run `hash -r` (or open a new terminal) and
+  confirm `which pulseview` → `/usr/local/bin/pulseview`.
+
+**`pulseview: symbol lookup error: undefined symbol: ... create_analog_packet ...`:**
+- A stock/distro PulseView is loading the git libsigrokcxx. Build PulseView
+  from source (step 3) — don't mix distro and git builds.
+
+**`GLib-CRITICAL ... '(dd)' ... has a type of 'd'`:**
+- libsigrok predates the `voltage_threshold` type fix (commit `0d86b97`).
+  `git pull` and rebuild libsigrok (step 1).
+
+**`srd: Failed to load decoder iec/gpib/max7219`:**
+- Harmless — those three decoders in libsigrokdecode git master have upstream
+  metadata bugs and are skipped at startup; everything else loads.
+
 ## 🚀 Upstreaming
 
 The `alientek-dl16` driver is a self-contained series of commits in
