@@ -611,8 +611,11 @@ static void dl16_emit_logic(struct sr_dev_inst *sdi)
 				minlen = devc->chanbuf[ch]->len;
 		}
 	}
-	if (!have || minlen == 0 || minlen == G_MAXSIZE)
+	if (!have || minlen == 0 || minlen == G_MAXSIZE) {
+		sr_spew("emit: stall (have=%d minlen=%zu)", have, minlen);
 		return;
+	}
+	sr_spew("emit: minlen=%zu", minlen);
 
 	nsamples = minlen * 8;
 	out = g_malloc(nsamples * 2);
@@ -680,6 +683,7 @@ SR_PRIV void dl16_handle_frame(struct sr_dev_inst *sdi, uint8_t order,
 		dlen = plen - 2;
 		if (ch < 0 || ch >= NUM_CHANNELS)
 			break;
+		sr_spew("order 1 (data): ch=%d dlen=%zu", ch, dlen);
 
 		if (devc->rle) {
 			size_t i;
