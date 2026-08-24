@@ -365,6 +365,10 @@ static int dl16_send_simple_trigger(const struct sr_dev_inst *sdi)
 
 	trig[8] = has_trigger ? 0 : 1;
 
+	sr_spew("trig: %02x %02x %02x %02x %02x %02x %02x %02x | %02x",
+		trig[0], trig[1], trig[2], trig[3], trig[4], trig[5],
+		trig[6], trig[7], trig[8]);
+
 	return dl16_write_command(sdi, CMD_SIMPLE_TRIGGER, trig, sizeof(trig));
 }
 
@@ -746,7 +750,13 @@ SR_PRIV void dl16_handle_frame(struct sr_dev_inst *sdi, uint8_t order,
 		devc->acq_aborted = TRUE;
 		break;
 	case ORDER_ACK:
-		/* ACK for a host command. payload[2] = echoed cmd. */
+		/* ACK for a host command. payload[2] = echoed cmd,
+		 * payload[3] = status (3 = accepted). */
+		sr_spew("order 4 (ack): plen=%zu payload=%02x %02x %02x %02x",
+			plen, plen > 0 ? payload[0] : 0,
+			plen > 1 ? payload[1] : 0,
+			plen > 2 ? payload[2] : 0,
+			plen > 3 ? payload[3] : 0);
 		if (plen >= 3 && payload[2] == CMD_STOP)
 			devc->acq_aborted = TRUE;
 		break;
