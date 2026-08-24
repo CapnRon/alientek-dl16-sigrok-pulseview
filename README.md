@@ -157,15 +157,30 @@ sigrok-cli -d alientek-dl16 -c samplerate=10m -c continuous=false \
     --channels=D0 --triggers D0=r --samples=100k -O binary -o trig.bin
 ```
 
-In **PulseView**: the device appears under *Devices → ALIENTEK DL16 Plus* once
-the driver is installed.
+In **PulseView**: open *File → Connect to Device* (or use the top-left
+drop-down), select **ALIENTEK DL16**, set the sample rate and channels, then
+press **Run**. PWM output is exposed as the **PWM1** / **PWM2** channel groups.
 
 ### Config keys
 
-`SR_CONF_SAMPLERATE`, `SR_CONF_LIMIT_SAMPLES`, `SR_CONF_LIMIT_FRAMES`,
-`SR_CONF_CAPTURE_RATIO`, `SR_CONF_RLE`, `SR_CONF_CONTINUOUS`,
-`SR_CONF_VOLTAGE_THRESHOLD`, `SR_CONF_TRIGGER_MATCH`,
-`SR_CONF_OUTPUT_FREQUENCY`, `SR_CONF_DUTY_CYCLE`.
+Pass these with `-c key=value` in `sigrok-cli` (or in PulseView's device
+options). The `SR_CONF_*` names are the driver's internal enum identifiers —
+the **CLI key** column is what you actually type:
+
+| CLI key | Type | Meaning / valid values |
+|---------|------|------------------------|
+| `samplerate` | uint64 | Sample rate. Buffer mode: `1m 2m 4m 5m 10m 20m 25m 40m 50m 100m 200m 250m 500m`. Stream mode (`continuous=true`): `1m … 20m`. |
+| `continuous` | bool | `true` = stream mode (default), `false` = buffer mode. |
+| `limit_samples` | uint64 | Number of samples to capture. |
+| `limit_frames` | uint64 | Number of frames to capture. |
+| `captureratio` | uint64 | Pre-trigger capture ratio, 0–100 (% of buffer before the trigger). |
+| `rle` | bool | Run-length-encoded capture. |
+| `voltage_threshold` | float | Input threshold, −6.0 … +6.0 V in 0.1 V steps. |
+| `output_frequency` | float | PWM output frequency, 1 Hz … 20 MHz (set per PWM1/PWM2 group). |
+| `output_duty_cycle` | float | PWM duty cycle, 0–100 %. |
+
+Triggers use `--triggers` (not `-c`): `--triggers D0=r` rising, `D0=f` falling,
+`D0=0` low, `D0=1` high, `D0=e` any edge.
 
 ## 🚀 Upstreaming
 
