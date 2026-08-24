@@ -424,6 +424,7 @@ SR_PRIV struct dev_context *dl16_dev_new(void)
 	devc->capture_ratio = 50;
 	devc->rate_index = 1;	/* 1 MHz default */
 	devc->continuous = TRUE;	/* stream mode (matches vendor default) */
+	devc->pwm_duty[0] = devc->pwm_duty[1] = 50;
 	for (i = 0; i < NUM_CHANNELS; i++)
 		devc->chanbuf[i] = g_byte_array_new();
 

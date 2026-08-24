@@ -45,6 +45,8 @@ static const uint32_t devopts[] = {
 	SR_CONF_VOLTAGE_THRESHOLD | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
 	SR_CONF_TRIGGER_MATCH | SR_CONF_LIST,
 	SR_CONF_CONN | SR_CONF_GET,
+	SR_CONF_OUTPUT_FREQUENCY | SR_CONF_GET | SR_CONF_SET,
+	SR_CONF_DUTY_CYCLE | SR_CONF_GET | SR_CONF_SET,
 };
 
 static const uint64_t samplerates[] = {
@@ -168,6 +170,10 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 				channel_names[j]);
 			cg->channels = g_slist_append(cg->channels, ch);
 		}
+
+		/* PWM output channel groups (no logic channels attached). */
+		sr_channel_group_new(sdi, "PWM1", NULL);
+		sr_channel_group_new(sdi, "PWM2", NULL);
 	}
 	libusb_free_device_list(devlist, 1);
 	g_slist_free_full(conn_devices, (GDestroyNotify)sr_usb_dev_inst_free);
@@ -232,13 +238,24 @@ static int dev_close(struct sr_dev_inst *sdi)
 	return SR_OK;
 }
 
+/* Map a channel group to a PWM channel (0/1); -1 if not a PWM group. */
+static int pwm_channel_from_cg(const struct sr_channel_group *cg)
+{
+	if (!cg)
+		return 0;	/* default to PWM1 */
+	if (!strcmp(cg->name, "PWM1"))
+		return 0;
+	if (!strcmp(cg->name, "PWM2"))
+		return 1;
+	return -1;
+}
+
 static int config_get(uint32_t key, GVariant **data,
 	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
 {
 	struct dev_context *devc;
 	struct sr_usb_dev_inst *usb;
-
-	(void)cg;
+	int ch;
 
 	if (!sdi)
 		return SR_ERR_ARG;
@@ -273,6 +290,16 @@ static int config_get(uint32_t key, GVariant **data,
 	case SR_CONF_VOLTAGE_THRESHOLD:
 		*data = g_variant_new_double(devc->threshold);
 		break;
+	case SR_CONF_OUTPUT_FREQUENCY:
+		if ((ch = pwm_channel_from_cg(cg)) < 0)
+			return SR_ERR_NA;
+		*data = g_variant_new_double(devc->pwm_freq[ch]);
+		break;
+	case SR_CONF_DUTY_CYCLE:
+		if ((ch = pwm_channel_from_cg(cg)) < 0)
+			return SR_ERR_NA;
+		*data = g_variant_new_double(devc->pwm_duty[ch]);
+		break;
 	default:
 		return SR_ERR_NA;
 	}
@@ -284,9 +311,7 @@ static int config_set(uint32_t key, GVariant *data,
 	const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
 {
 	struct dev_context *devc;
-	int idx;
-
-	(void)cg;
+	int idx, ch;
 
 	if (!sdi)
 		return SR_ERR_ARG;
@@ -325,6 +350,22 @@ static int config_set(uint32_t key, GVariant *data,
 		break;
 	case SR_CONF_VOLTAGE_THRESHOLD:
 		devc->threshold = g_variant_get_double(data);
+		break;
+	case SR_CONF_OUTPUT_FREQUENCY:
+		if ((ch = pwm_channel_from_cg(cg)) < 0)
+			return SR_ERR_NA;
+		devc->pwm_freq[ch] = g_variant_get_double(data);
+		if (sdi->status == SR_ST_ACTIVE)
+			dl16_send_pwm(sdi, ch, (uint32_t)devc->pwm_freq[ch],
+				(uint32_t)devc->pwm_duty[ch]);
+		break;
+	case SR_CONF_DUTY_CYCLE:
+		if ((ch = pwm_channel_from_cg(cg)) < 0)
+			return SR_ERR_NA;
+		devc->pwm_duty[ch] = g_variant_get_double(data);
+		if (sdi->status == SR_ST_ACTIVE)
+			dl16_send_pwm(sdi, ch, (uint32_t)devc->pwm_freq[ch],
+				(uint32_t)devc->pwm_duty[ch]);
 		break;
 	default:
 		return SR_ERR_NA;

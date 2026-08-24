@@ -42,6 +42,7 @@
 #define EP_IN			0x81	/* MCU -> host */
 
 #define NUM_CHANNELS		16
+#define NUM_PWM_CHANNELS	2
 #define NUM_TRIGGER_STAGES	1
 
 /* USB transfer geometry. Every block of data is 4-way interleaved in
@@ -92,6 +93,10 @@ struct dev_context {
 	gboolean rle;
 	float threshold;
 	int rate_index;		/* ParameterSetting rate byte (1-based) */
+
+	/* PWM output (two channels). */
+	double pwm_freq[NUM_PWM_CHANNELS];
+	double pwm_duty[NUM_PWM_CHANNELS];
 
 	/* Runtime state. */
 	struct sr_context *ctx;
