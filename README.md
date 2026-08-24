@@ -62,43 +62,84 @@ reimplemented cleanly for upstreaming.
 
 ## 📦 Dependencies (Linux)
 
-Copy-paste to install everything needed (Debian/Ubuntu):
+One command installs everything needed to build libsigrok (this repo),
+libsigrokdecode, and PulseView (Debian/Ubuntu):
 
 ```sh
 sudo apt-get update && sudo apt-get install -y \
-  git build-essential autoconf automake libtool pkg-config \
-  libglib2.0-dev libusb-1.0-0-dev libzip-dev \
-  libftdi1-dev libhidapi-dev libserialport-dev
+  git build-essential autoconf automake libtool pkg-config cmake \
+  libglib2.0-dev libglibmm-2.4-dev \
+  libusb-1.0-0-dev libzip-dev libftdi1-dev libhidapi-dev libserialport-dev \
+  python3-dev swig doxygen \
+  qtbase5-dev qtbase5-dev-tools qttools5-dev qttools5-dev-tools libqt5svg5-dev \
+  libboost-dev libboost-filesystem-dev libboost-serialization-dev
 ```
 
-> Minimal DL16-only build only needs `libglib2.0-dev` and `libusb-1.0-0-dev`
-> (plus the toolchain). The extra packages enable the other libsigrok drivers.
-
 ## 🛠️ Building (Linux)
+
+Build and install in this order (all into `/usr/local`). The three pieces
+must come from matching git snapshots — mixing a distro PulseView with a
+git libsigrok fails with an undefined-symbol / `invalid argument` error.
+
+### 1. libsigrok — this repo (adds the `alientek-dl16` driver)
 
 ```sh
 git clone https://github.com/CapnRon/alientek-dl16-sigrok-pulseview.git
 cd alientek-dl16-sigrok-pulseview
 chmod +x autogen.sh   # required if the script isn't executable
 ./autogen.sh
-make
-sudo make install
-sudo ldconfig          # required: refresh the loader cache so tools pick up the new library
-```
-
-Choose **one** `./configure` line before running `make`:
-
-**Full build (recommended)** — all drivers + `alientek-dl16` + C++ bindings (required for PulseView):
-
-```sh
 ./configure --enable-cxx --disable-python --disable-java --disable-ruby --prefix=/usr/local
+make -j$(nproc)
+sudo make install
 ```
 
-**Minimal build** — `alientek-dl16` only (fastest; `sigrok-cli` works, but PulseView will NOT see the driver):
+`--enable-cxx` is required: PulseView links `libsigrokcxx` (the C++ bindings).
+
+> **sigrok-cli only** (no PulseView): use the faster minimal build instead —
+> `./configure --disable-all-drivers --enable-alientek-dl16`
+
+### 2. libsigrokdecode (upstream)
 
 ```sh
-./configure --disable-all-drivers --enable-alientek-dl16
+cd ~
+git clone https://github.com/sigrokproject/libsigrokdecode.git
+cd libsigrokdecode
+./autogen.sh
+./configure --prefix=/usr/local
+make -j$(nproc)
+sudo make install
 ```
+
+### 3. PulseView (upstream)
+
+```sh
+cd ~
+git clone https://github.com/sigrokproject/pulseview.git
+cd pulseview
+mkdir -p build && cd build
+cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release ..
+make -j$(nproc)
+sudo make install
+```
+
+### 4. Refresh the loader cache
+
+```sh
+sudo ldconfig
+```
+
+### 5. USB device access (udev)
+
+Allow non-root access to the analyzer (`1a86:ffcc`):
+
+```sh
+echo 'SUBSYSTEMS=="usb", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="ffcc", MODE="0666"' \
+  | sudo tee /etc/udev/rules.d/60-alientek-dl16.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+
+Unplug and replug the analyzer, then verify below.
 
 ## 📟 Usage
 

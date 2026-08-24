@@ -337,6 +337,8 @@ ATTRS{idVendor}=="128d", ATTRS{idProduct}=="0003", ENV{ID_SIGROK}="1"
 # UNI-T UT-D04 multimeter cable (for various UNI-T and rebranded DMMs)
 # UNI-T UT325
 ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="e008", ENV{ID_SIGROK}="1"
+# ALIENTEK DL16 / DL16 Plus logic analyzer
+ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="ffcc", ENV{ID_SIGROK}="1"
 
 # V&A VA4000 multimeter cable (for various V&A DMMs)
 ATTRS{idVendor}=="04fc", ATTRS{idProduct}=="0201", ENV{ID_SIGROK}="1"
