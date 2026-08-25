@@ -468,6 +468,11 @@ SR_PRIV int dl16_read_fpga_version(const struct sr_dev_inst *sdi,
 
 	*version = db[4 + 5] * 100 + db[4 + 6];
 
+	/* Leave the FPGA asleep after the identity query, exactly like the
+	 * ATK host does at the end of its connect sequence. The capture path
+	 * wakes it with a bare SetResetState(1). */
+	dl16_set_reset_state(sdi, 0);
+
 	return SR_OK;
 }
 
@@ -727,6 +732,14 @@ SR_PRIV void dl16_handle_frame(struct sr_dev_inst *sdi, uint8_t order,
 				((uint64_t)p[2] << 16) | ((uint64_t)p[3] << 24) |
 				((uint64_t)p[4] << 32);
 		}
+		{
+			GString *cs = g_string_new(NULL);
+			for (i = 0; i < NUM_CHANNELS; i++)
+				g_string_append_printf(cs, "ch%d=%" PRIu64 " ",
+					i, devc->chan_counts[i]);
+			sr_spew("order 3 counts: %s", cs->str);
+			g_string_free(cs, TRUE);
+		}
 
 		/* Crop (buffer mode): skip samples so the trigger lands at the
 		 * capture-ratio position. offset = count*8 - trig_depth - trig_pos. */
@@ -750,8 +763,22 @@ SR_PRIV void dl16_handle_frame(struct sr_dev_inst *sdi, uint8_t order,
 			plen, plen > 0 ? payload[0] : 0,
 			plen > 1 ? payload[1] : 0,
 			plen > 2 ? payload[2] : 0);
-		devc->acq_aborted = TRUE;
+		/* order 6 is a per-channel transfer-complete marker, not a
+		 * capture-complete signal: the device drains each enabled channel
+		 * separately and sends an order 6 after each. Aborting here drops
+		 * the remaining channels' data. Completion is driven by
+		 * limit_samples (and the session stop), not by order 6. */
 		break;
+	case ORDER_PROGRESS:
+	{
+		uint64_t prog = 0;
+		int i;
+		for (i = 0; i < 5 && (size_t)2 + i < plen; i++)
+			prog |= (uint64_t)payload[2 + i] << (i * 8);
+		sr_spew("order 5 (progress): plen=%zu prog=%" PRIu64,
+			plen, prog);
+		break;
+	}
 	case ORDER_ACK:
 		/* ACK for a host command. payload[2] = echoed cmd,
 		 * payload[3] = status (3 = accepted). */
@@ -879,8 +906,18 @@ static void LIBUSB_CALL dl16_receive_transfer(struct libusb_transfer *transfer)
 	nblocks = transfer->actual_length / BLOCK_SIZE;
 	out_len = nblocks * BLOCK_SIZE;
 	if (out_len) {
+		static int dump_blocks;
 		deinterleaved = g_malloc(out_len);
 		dl16_deinterleave(transfer->buffer, deinterleaved, out_len);
+		if (dump_blocks < 3) {
+			GString *hex = g_string_new(NULL);
+			size_t n;
+			for (n = 0; n < 96 && n < out_len; n++)
+				g_string_append_printf(hex, "%02x ", deinterleaved[n]);
+			sr_spew("raw[0..%zu]: %s", n, hex->str);
+			g_string_free(hex, TRUE);
+			dump_blocks++;
+		}
 		dl16_parse_frames(sdi, deinterleaved, out_len);
 		g_free(deinterleaved);
 	}
@@ -914,9 +951,9 @@ SR_PRIV int dl16_start_acquisition(const struct sr_dev_inst *sdi)
 	for (i = 0; i < NUM_CHANNELS; i++)
 		g_byte_array_set_size(devc->chanbuf[i], 0);
 
-	/* Full FPGA reset cycle so every capture starts from a clean state. */
-	dl16_set_reset_state(sdi, 0);
-	g_usleep(10 * 1000);
+	/* Wake FPGA and drain stale data (matches the ATK host's fpgaActive:
+	 * a bare SetResetState(1), no preceding sleep pulse). The FPGA was put
+	 * to sleep at the end of dev_open's identity query. */
 	dl16_set_reset_state(sdi, 1);
 	g_usleep(20 * 1000);
 	while (libusb_bulk_transfer(usb->devhdl, EP_IN, dummy, sizeof(dummy),
