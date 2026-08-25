@@ -97,7 +97,6 @@ static void dl16_deinterleave(const uint8_t *src, uint8_t *dst, unsigned len)
 			dst[8 * j + 6] = src[i + 1536 + 2 * j + 0];
 			dst[8 * j + 7] = src[i + 1536 + 2 * j + 1];
 		}
-		src += BLOCK_SIZE;
 		dst += BLOCK_SIZE;
 	}
 }
